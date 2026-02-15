@@ -1,4 +1,4 @@
-# GCP Telegram VPN Bot (Serverless & Singleton)
+# 🛡️ GCP Serverless Telegram VPN Bot
 
 ![Python](https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![GCP](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
@@ -6,72 +6,107 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)
 
-A lightweight, serverless Telegram bot that deploys a **disposable OpenVPN server** on Google Cloud Platform (GCP) on demand.
+**Create disposable, cost-effective OpenVPN servers on-demand directly from Telegram.**
 
-Designed for engineers who need a clean IP address or a secure tunnel temporarily, without the high cost of running a VPS 24/7. It utilizes the **Singleton Pattern** to ensure only one instance runs at a time, preventing accidental billing.
+Designed for engineers and privacy advocates who need a clean IP address or a secure tunnel temporarily, without the commitment and cost of running a VPS 24/7. This bot leverages Google Cloud Functions and Compute Engine Spot instances to deliver a powerful, serverless VPN solution that costs pennies to run.
 
-## 🚀 Features
+---
 
-* **Serverless Architecture**: Logic runs on **Google Cloud Functions (2nd Gen)**. Zero cost when idle.
-* **Singleton Enforcement**: Automatically destroys existing instances before creating a new one. Never pay for duplicate servers.
-* **Cost Effective**: Uses **Spot Instances (e2-micro)** for maximum savings (~$0.005/hour).
-* **Automated Deployment**:
-    * One-click setup via Telegram.
-    * Auto-generates OpenVPN (`.ovpn`) configuration.
-    * Sends the config file directly to your chat.
-* **Real-time Status**: Check IP, Uptime, and **Estimated Cost** directly from the bot.
+## 🚀 Key Features
+
+*   **Serverless Architecture**: Logic runs on **Google Cloud Functions (2nd Gen)**. Zero cost when idle.
+*   **Singleton Pattern**: Automatically destroys existing instances before creating a new one, preventing accidental billing.
+*   **Ultra Low Cost**: Utilizes **Spot Instances (e2-micro)** for maximum savings (~$0.005/hour).
+*   **Automated Deployment**: One-click setup via Telegram. Auto-generates OpenVPN (`.ovpn`) configuration and sends it directly to your chat.
+*   **Real-time Insights**: Check IP, Uptime, and **Estimated Cost** directly from the bot.
+
+---
 
 ## 🛠️ Architecture
 
-1.  **User** sends `/new` command to Telegram Bot.
-2.  **Cloud Function** receives the webhook and calls GCP Compute Engine API.
-3.  **Compute Engine** launches an `e2-micro` Spot instance.
-4.  **Startup Script** (Bash) inside the VM:
-    * Installs Docker.
-    * Pulls `kylemanna/openvpn` image.
-    * Generates PKI and Client Certificates.
-    * Uploads the `.ovpn` file back to Telegram.
-5.  **User** imports the file and connects.
+The bot follows a serverless event-driven architecture to keep costs minimal.
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 User (Telegram)
+    participant Bot as 🤖 Cloud Function
+    participant GCP as ☁️ Compute Engine
+    participant VM as 🖥️ VPN Instance
+
+    User->>Bot: /new (Deploy VPN)
+    Bot->>GCP: Check & Delete Old Instances (Singleton)
+    Bot->>GCP: Create New e2-micro Spot Instance
+    GCP->>VM: Launch & Run Startup Script
+    activate VM
+    VM->>VM: Install Docker & OpenVPN
+    VM->>VM: Generate PKI & Client Config
+    VM->>User: Send .ovpn File
+    deactivate VM
+    User->>Bot: /status
+    Bot->>GCP: Query Instance Metadata
+    Bot->>User: Return IP, Uptime & Cost
+```
+
+---
 
 ## 📋 Prerequisites
 
-* **Google Cloud Platform Account** with billing enabled.
-* **Telegram Account**.
-* **Google Cloud SDK (`gcloud`)** installed (or use Cloud Shell).
+Before you begin, ensure you have the following:
+
+1.  **Google Cloud Platform Account**: With billing enabled.
+2.  **Telegram Account**: You'll need a bot token.
+3.  **Google Cloud SDK (`gcloud`)**: Installed and authenticated locally (or use Cloud Shell).
+
+---
 
 ## ⚙️ Configuration
 
-Create a file named `main.py` and update the `CFG` dictionary with your details:
+Create a file named `main.py` in your project root and configure the `CFG` dictionary with your details:
+
+| Key | Description | Example |
+| :--- | :--- | :--- |
+| `token` | Your Telegram Bot Token from @BotFather | `"123456:ABC-DEF..."` |
+| `chat_id` | Your personal Telegram User ID (get from @userinfobot) | `"987654321"` |
+| `project` | Your GCP Project ID | `"my-gcp-project"` |
+| `zone` | The GCP Zone for the VM | `"us-central1-a"` |
+| `prefix` | Name prefix for the VPN instance | `"vpn-svr"` |
+| `machine` | The machine type (e2-micro recommended for cost) | `"e2-micro"` |
+| `hourly_rate` | Estimated hourly cost for the spot instance | `0.005` |
 
 ```python
 # main.py configuration block
 CFG = {
-    "token": "YOUR_TELEGRAM_BOT_TOKEN",  # Get from @BotFather
-    "chat_id": "YOUR_TELEGRAM_USER_ID",  # Get from @userinfobot
+    "token": "YOUR_TELEGRAM_BOT_TOKEN",
+    "chat_id": "YOUR_TELEGRAM_USER_ID",
     "project": "your-gcp-project-id",
-    "zone": "asia-east1-c",              # Or your preferred zone
+    "zone": "asia-east1-c",
     "prefix": "vpn-svr",
-    "machine": "e2-micro",               # Cost-effective choice
-    "hourly_rate": 0.005                 # Spot price for estimation
+    "machine": "e2-micro",
+    "hourly_rate": 0.005
 }
+```
 
-📦 Deployment Guide
-1. Enable Required APIs
+---
 
-Run the following commands in your terminal or Cloud Shell:
-Bash
+## 📦 Deployment Guide
 
-gcloud services enable cloudfunctions.googleapis.com \
+### 1. Enable Required APIs
+
+Run the following commands in your terminal to enable necessary GCP services:
+
+```bash
+gcloud services enable \
+    cloudfunctions.googleapis.com \
     cloudbuild.googleapis.com \
     compute.googleapis.com \
     run.googleapis.com
+```
 
-2. Deploy the Function
+### 2. Deploy to Cloud Functions
 
-Deploy the Python script to Cloud Functions (Gen 2).
-Note: We increase memory to 512MB to handle google-cloud-compute libraries efficiently.
-Bash
+Deploy the bot logic to Google Cloud Functions (Gen 2). Note: We allocate 512MB memory to handle the `google-cloud-compute` library efficiently.
 
+```bash
 gcloud functions deploy deploy-vpn \
     --gen2 \
     --runtime=python310 \
@@ -81,33 +116,71 @@ gcloud functions deploy deploy-vpn \
     --trigger-http \
     --allow-unauthenticated \
     --memory=512MB
+```
 
-3. Set Webhook
+### 3. Set the Webhook
 
-Once deployed, copy the URL provided by the output (e.g., https://asia-east1-project.cloudfunctions.net/deploy-vpn) and set it as your Telegram Bot's webhook:
-Bash
+After deployment, copy the URL from the output (e.g., `https://asia-east1-project.cloudfunctions.net/deploy-vpn`) and register it with Telegram:
 
-curl "[https://api.telegram.org/bot](https://api.telegram.org/bot)<YOUR_TOKEN>/setWebhook?url=<YOUR_FUNCTION_URL>"
+```bash
+curl "https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=<YOUR_FUNCTION_URL>"
+```
 
-📱 Bot Commands
+---
 
-Configure these commands via @BotFather:
-Command	Description
-/new	Deploy VPN: Deletes old VMs and starts a fresh one. Sends .ovpn file in ~2 mins.
-/status	Check Status: Shows current IP, Uptime, and Real-time Estimated Cost.
-/del	Destroy All: Immediately terminates all VPN instances to stop billing.
-💰 Cost Analysis (Estimated)
+## 📱 Usage
 
-    Cloud Functions: Free tier covers 2 million invocations/month. (Free)
+Once deployed, interact with your bot on Telegram:
 
-    Compute Engine (e2-micro Spot):
+### Commands
 
-        ~ $0.005 USD / hour (varies by region).
+*   `/new` - **Deploy VPN**: Terminates any existing instance and launches a fresh one. You will receive a `.ovpn` file in ~2 minutes.
+*   `/status` - **Check Status**: Displays the current Public IP, Uptime, and Real-time Estimated Cost.
+*   `/del` - **Destroy All**: Immediately terminates all VPN instances to stop billing.
 
-        10 hours of usage ≈ $0.05 USD.
+### Example Interaction
 
-    Network Egress: Standard GCP rates apply (first 1GB is usually free/month).
+> **User**: `/new`
+>
+> **Bot**: 🛠️ Initializing Environment...
+> *(...2 minutes later...)*
+> **Bot**: [Sends file: `client1.ovpn`]
+> **Bot**: ✅ VPN Ready: client1 (e2-micro)
 
-📝 License
+---
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 💰 Cost Analysis (Estimated)
+
+*   **Cloud Functions**: The Free Tier covers 2 million invocations per month. **(Free)**
+*   **Compute Engine (e2-micro Spot)**:
+    *   Approx. **$0.005 USD / hour** (varies by region).
+    *   10 hours of usage ≈ **$0.05 USD**.
+*   **Network Egress**: Standard GCP rates apply (first 1GB is usually free/month).
+
+**Pro Tip**: Always use `/del` when you're done to ensure zero unexpected costs!
+
+---
+
+## 🔒 Security
+
+*   **Ephemeral Keys**: New PKI and client certificates are generated for every session.
+*   **Disposable Infrastructure**: The server is destroyed after use, leaving no trace.
+*   **Access Control**: The bot is hardcoded to respond **only** to your specific `chat_id`. Unauthorized users are ignored.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1.  Fork the repository
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4.  Push to the branch (`git push origin feature/AmazingFeature`)
+5.  Open a Pull Request
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
