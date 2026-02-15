@@ -140,12 +140,9 @@ Once deployed, interact with your bot on Telegram:
 
 ### Example Interaction
 
-> **User**: `/new`
->
-> **Bot**: 🛠️ Initializing Environment...
-> *(...2 minutes later...)*
-> **Bot**: [Sends file: `client1.ovpn`]
-> **Bot**: ✅ VPN Ready: client1 (e2-micro)
+<p align="center">
+  <img src="assets/demo_interaction.png" width="350" title="Bot Demo">
+</p>
 
 ---
 
