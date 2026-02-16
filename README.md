@@ -132,6 +132,7 @@ curl "https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=<YOUR_FUNCTION_URL
 *   `/new` - Open the deployment menu (Region -> Peers).
 *   `/status` - Show active VPN servers and connection details.
 *   `/del` - Destroy all active instances immediately.
+*   `/log` - Show system diagnostics (Project ID, Active VM count, etc.).
 
 ---
 **Disclaimer:** This project is for educational purposes. Ensure you comply with GCP Terms of Service regarding Spot Instances and Network usage.

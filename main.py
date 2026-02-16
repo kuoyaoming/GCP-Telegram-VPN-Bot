@@ -104,12 +104,15 @@ def init_config():
 
 def send_msg(chat_id, text, reply_markup=None):
     if not CFG["token"]: return
+    print(f"DEBUG: send_msg called for chat_id={chat_id}")
     url = f"https://api.telegram.org/bot{CFG['token']}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
     if reply_markup:
         payload["reply_markup"] = reply_markup
     try:
-        requests.post(url, json=payload, timeout=10)
+        print(f"DEBUG: sending payload: {payload}")
+        response = requests.post(url, json=payload, timeout=10)
+        print(f"DEBUG: response status: {response.status_code}, body: {response.text}")
     except Exception as e:
         print(f"Error sending message: {e}")
 
@@ -141,16 +144,22 @@ def answer_callback(callback_query_id, text=None):
         print(f"Error answering callback: {e}")
 
 def get_region_keyboard():
-    keyboard = []
-    row = []
-    for city, zone in REGION_MAP.items():
-        row.append({"text": city, "callback_data": f"region:{zone}"})
-        if len(row) == 2:
+    print("DEBUG: Generating Region Keyboard")
+    try:
+        keyboard = []
+        row = []
+        for city, zone in REGION_MAP.items():
+            row.append({"text": city, "callback_data": f"region:{zone}"})
+            if len(row) == 2:
+                keyboard.append(row)
+                row = []
+        if row:
             keyboard.append(row)
-            row = []
-    if row:
-        keyboard.append(row)
-    return {"inline_keyboard": keyboard}
+        print(f"DEBUG: Keyboard Generated: {keyboard}")
+        return {"inline_keyboard": keyboard}
+    except Exception as e:
+        print(f"ERROR: get_region_keyboard failed: {e}")
+        return None
 
 def get_peers_keyboard(zone):
     keyboard = []
