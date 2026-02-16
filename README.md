@@ -88,10 +88,22 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 gcloud projects add-iam-policy-binding $PROJECT_ID \
   --member serviceAccount:$SERVICE_ACCOUNT \
   --role roles/compute.admin
+
+# Create Firewall Rule (Allow WireGuard UDP)
+gcloud compute firewall-rules create allow-wireguard \
+  --direction=INGRESS \
+  --priority=1000 \
+  --network=default \
+  --action=ALLOW \
+  --rules=udp:51820 \
+  --source-ranges=0.0.0.0/0 \
+  --target-tags=vpn-server
 ```
 
 ### 4. Deploy Cloud Function
-Deploy the function using the **2nd Gen** runtime. Replace `YOUR_PROJECT_ID` with your actual project ID.
+Deploy the function using the **2nd Gen** runtime. We use `gcloud config get-value project` to automatically set your current Project ID.
+
+**Note:** We allocate **512MB** memory to prevent Out-Of-Memory errors during Python dependency loading.
 
 ```bash
 gcloud functions deploy vpn-bot \
@@ -102,8 +114,8 @@ gcloud functions deploy vpn-bot \
   --entry-point=deploy_vpn \
   --trigger-http \
   --allow-unauthenticated \
-  --set-env-vars GCP_PROJECT_ID=YOUR_PROJECT_ID \
-  --memory=256MB \
+  --set-env-vars GCP_PROJECT_ID=$(gcloud config get-value project) \
+  --memory=512MB \
   --timeout=60s
 ```
 
