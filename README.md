@@ -1,9 +1,11 @@
 # 🛡️ Serverless WireGuard VPN Bot
 
-![Status](https://img.shields.io/badge/Status-Stable-brightgreen)
-![Python](https://img.shields.io/badge/Python-3.11-blue)
-![GCP](https://img.shields.io/badge/Google_Cloud-Serverless-orange)
-![License](https://img.shields.io/badge/License-MIT-green)
+[![Status](https://img.shields.io/badge/Status-Stable-brightgreen)](https://github.com/your-repo)
+[![Python](https://img.shields.io/badge/Python-3.11-blue)](https://www.python.org/)
+[![GCP](https://img.shields.io/badge/Google_Cloud-Serverless-orange)](https://cloud.google.com/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+[**English**](README.md) | [**繁體中文**](README_zh-TW.md)
 
 A cost-optimized, serverless Telegram Bot that deploys disposable WireGuard VPN servers on Google Cloud Platform (GCP) on-demand. Designed for personal use with extreme cost efficiency using `f1-micro` Spot Instances.
 
@@ -11,7 +13,7 @@ A cost-optimized, serverless Telegram Bot that deploys disposable WireGuard VPN 
 
 *   **Zero Idle Cost:** Serverless architecture (Cloud Functions 2nd Gen) scales to zero.
 *   **Menu-Driven UI:** Interactive Telegram Inline Keyboards for region and peer selection.
-*   **Global Reach:** Deploy to any GCP region (Taiwan, Tokyo, US, Europe, etc.).
+*   **Global Reach:** Deploy to **9 GCP regions** including Taiwan, Tokyo, Singapore, US (Iowa, Oregon, S. Carolina), UK (London), Germany (Frankfurt), and Netherlands.
 *   **Instant Access:** Automatically generates WireGuard configs and **QR Codes** sent directly to chat.
 *   **Cost Optimized:** Uses Spot `f1-micro` instances (~$0.004/hour) with auto-shutdown capability (manual `/del`).
 *   **Multi-User Support:** Strict authorization via Secret Manager (User ID whitelist).
