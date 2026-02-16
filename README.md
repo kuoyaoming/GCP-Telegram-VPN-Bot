@@ -129,7 +129,7 @@ curl "https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=<YOUR_FUNCTION_URL
 ## 📱 Usage
 
 *   `/start` - Welcome message.
-*   `/new` - Open the deployment menu (Region -> Peers).
+*   `/new` - Open the deployment menu (Region Selection).
 *   `/status` - Show active VPN servers and connection details.
 *   `/del` - Destroy all active instances immediately.
 *   `/log` - Show system diagnostics (Project ID, Active VM count, etc.).
