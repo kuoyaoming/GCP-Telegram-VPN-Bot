@@ -162,17 +162,9 @@ def get_region_keyboard():
         print(f"ERROR: get_region_keyboard failed: {e}")
         return None
 
-def get_peers_keyboard(zone):
-    keyboard = []
-    row = []
-    for i in range(1, 6):
-        row.append({"text": str(i), "callback_data": f"deploy:{zone}:{i}"})
-    keyboard.append(row)
-    return {"inline_keyboard": keyboard}
-
 # --- VM Management ---
 
-def launch_vm(chat_id, zone, peers):
+def launch_vm(chat_id, zone, peers=1):
     """
     Provisions an f1-micro Spot Instance with WireGuard.
     """
@@ -486,16 +478,8 @@ def handle_callback(cb):
         return
 
     if data.startswith("region:"):
+        # region:zone -> Directly Deploy
         zone = data.split(":")[1]
-        kb = get_peers_keyboard(zone)
-        edit_msg(chat_id, msg_id, f"📱 **Select Number of Devices for {zone}:**", reply_markup=kb)
-        answer_callback(cb_id)
-
-    elif data.startswith("deploy:"):
-        # deploy:zone:peers
-        parts = data.split(":")
-        zone = parts[1]
-        peers = int(parts[2])
 
         # 1. Validate Zone (Security)
         valid_zones = REGION_MAP.values()
@@ -509,10 +493,11 @@ def handle_callback(cb):
             send_msg(chat_id, "❌ **Deployment Failed:** You already have 5 active VMs.")
             return
 
-        answer_callback(cb_id, "Deploying...")
+        answer_callback(cb_id, f"Deploying in {zone}...")
         edit_msg(chat_id, msg_id, f"🚀 **Deploying f1-micro in {zone}...**\n(Approx. 3 mins for setup & QR code delivery)")
 
-        success, err = launch_vm(chat_id, zone, peers)
+        # Deploy with default peers=1
+        success, err = launch_vm(chat_id, zone, peers=1)
         if not success:
              send_msg(chat_id, f"❌ **Deployment Failed**\n{err}")
 
