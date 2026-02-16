@@ -181,6 +181,10 @@ swapon /swapfile
 sysctl vm.swappiness=10
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
+# 1.5 Enable IP Forwarding
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+sysctl -p
+
 # 2. Install Dependencies
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
