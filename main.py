@@ -5,6 +5,7 @@ import functions_framework
 import random
 import string
 import re
+import traceback
 from google.cloud import compute_v1
 from google.cloud import secretmanager
 
@@ -371,6 +372,7 @@ def deploy_vpn(request):
             handle_callback(data['callback_query'])
     except Exception as e:
         print(f"Top Level Error: {e}")
+        traceback.print_exc()
 
     return "OK"
 
