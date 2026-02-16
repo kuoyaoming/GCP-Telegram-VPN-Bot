@@ -306,8 +306,12 @@ def count_user_vms(chat_id):
     try:
         print(f"DEBUG: count_user_vms({chat_id}) - Start")
         client = get_compute_client()
-        f = f"labels.owner-id={chat_id} AND status=RUNNING"
-        request = compute_v1.ListInstancesRequest(project=CFG['project'], zone="-", filter=f)
+
+        # Use AggregatedListInstancesRequest directly
+        request = compute_v1.AggregatedListInstancesRequest()
+        request.project = CFG['project']
+        request.filter = f"labels.owner-id={chat_id} AND status=RUNNING"
+
         agg_list = client.aggregated_list(request=request)
         count = 0
         for _, response in agg_list:
@@ -321,8 +325,11 @@ def count_user_vms(chat_id):
 
 def delete_all_vms(chat_id):
     client = get_compute_client()
-    f = f"labels.owner-id={chat_id}"
-    request = compute_v1.ListInstancesRequest(project=CFG['project'], zone="-", filter=f)
+
+    request = compute_v1.AggregatedListInstancesRequest()
+    request.project = CFG['project']
+    request.filter = f"labels.owner-id={chat_id}"
+
     agg_list = client.aggregated_list(request=request)
     deleted_count = 0
     
@@ -391,8 +398,11 @@ def handle_message(msg):
 
     elif cmd == "/status":
         client = get_compute_client()
-        f = f"labels.owner-id={chat_id} AND status=RUNNING"
-        request = compute_v1.ListInstancesRequest(project=CFG['project'], zone="-", filter=f)
+
+        request = compute_v1.AggregatedListInstancesRequest()
+        request.project = CFG['project']
+        request.filter = f"labels.owner-id={chat_id} AND status=RUNNING"
+
         agg_list = client.aggregated_list(request=request)
 
         found = False
@@ -437,6 +447,22 @@ def handle_message(msg):
         send_msg(chat_id, "🗑️ **Deleting all active VMs...**")
         count = delete_all_vms(chat_id)
         send_msg(chat_id, f"✅ **Deleted {count} instances.**")
+
+    elif cmd == "/log":
+        # Simple Health Check / Debug Info
+        try:
+            count = count_user_vms(chat_id)
+            status_msg = (
+                f"🛠️ **System Diagnostics**\n\n"
+                f"🆔 **Project ID:** `{CFG['project']}`\n"
+                f"👤 **Your ID:** `{chat_id}`\n"
+                f"🔢 **Active VMs (API Check):** `{count}`\n"
+                f"✅ **Authorized Users:** `{len(CFG['authorized_users'])}`\n"
+                f"⚙️ **Config Loaded:** `True`"
+            )
+            send_msg(chat_id, status_msg)
+        except Exception as e:
+            send_msg(chat_id, f"❌ **Diagnostics Failed**\nError: `{str(e)}`")
 
 def handle_callback(cb):
     chat_id = str(cb.get('message', {}).get('chat', {}).get('id'))
