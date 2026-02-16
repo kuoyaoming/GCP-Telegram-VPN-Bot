@@ -303,20 +303,33 @@ def delete_vm(zone, instance_name):
         return False
 
 def count_user_vms(chat_id):
-    client = get_compute_client()
-    f = f"labels.owner-id={chat_id} AND status=RUNNING"
-    request = compute_v1.ListInstancesRequest(project=CFG['project'], zone="-", filter=f)
-    agg_list = client.aggregated_list(request=request)
-    count = 0
-    for _, response in agg_list:
-        if response.instances:
-            count += len(response.instances)
-    return count
+    try:
+        print(f"DEBUG: count_user_vms({chat_id}) - Start")
+        client = get_compute_client()
+
+        # Use AggregatedListInstancesRequest directly
+        request = compute_v1.AggregatedListInstancesRequest()
+        request.project = CFG['project']
+        request.filter = f"labels.owner-id={chat_id} AND status=RUNNING"
+
+        agg_list = client.aggregated_list(request=request)
+        count = 0
+        for _, response in agg_list:
+            if response.instances:
+                count += len(response.instances)
+        print(f"DEBUG: count_user_vms({chat_id}) - End: {count}")
+        return count
+    except Exception as e:
+        print(f"ERROR: count_user_vms failed: {e}")
+        return 0 # Fail safe
 
 def delete_all_vms(chat_id):
     client = get_compute_client()
-    f = f"labels.owner-id={chat_id}"
-    request = compute_v1.ListInstancesRequest(project=CFG['project'], zone="-", filter=f)
+
+    request = compute_v1.AggregatedListInstancesRequest()
+    request.project = CFG['project']
+    request.filter = f"labels.owner-id={chat_id}"
+
     agg_list = client.aggregated_list(request=request)
     deleted_count = 0
     
@@ -356,29 +369,40 @@ def handle_message(msg):
     chat_id = str(msg.get('chat', {}).get('id'))
     text = msg.get('text', '').strip()
 
+    print(f"DEBUG: handle_message: chat_id={chat_id}, text={text}")
+
     if not text: return
 
     if chat_id not in CFG["authorized_users"]:
+        print(f"DEBUG: Unauthorized access attempt by {chat_id}")
         send_msg(chat_id, "🔒 **Unauthorized**\nYour User ID is not authorized to use this bot.")
         return
 
     cmd = text.lower().split()[0]
+    print(f"DEBUG: Parsed command: {cmd}")
 
     if cmd == "/start":
         send_msg(chat_id, "👋 Welcome! Use /new to deploy a VPN.")
 
     elif cmd == "/new":
-        if count_user_vms(chat_id) >= 5:
+        print("DEBUG: Processing /new command...")
+        count = count_user_vms(chat_id)
+        if count >= 5:
+            print("DEBUG: Quota Exceeded")
             send_msg(chat_id, "❌ **Quota Exceeded**\nYou have 5 active VMs. Use /del to cleanup.")
             return
 
+        print("DEBUG: Sending Region Keyboard")
         kb = get_region_keyboard()
         send_msg(chat_id, "🌏 **Select VPN Region:**", reply_markup=kb)
 
     elif cmd == "/status":
         client = get_compute_client()
-        f = f"labels.owner-id={chat_id} AND status=RUNNING"
-        request = compute_v1.ListInstancesRequest(project=CFG['project'], zone="-", filter=f)
+
+        request = compute_v1.AggregatedListInstancesRequest()
+        request.project = CFG['project']
+        request.filter = f"labels.owner-id={chat_id} AND status=RUNNING"
+
         agg_list = client.aggregated_list(request=request)
 
         found = False
@@ -423,6 +447,22 @@ def handle_message(msg):
         send_msg(chat_id, "🗑️ **Deleting all active VMs...**")
         count = delete_all_vms(chat_id)
         send_msg(chat_id, f"✅ **Deleted {count} instances.**")
+
+    elif cmd == "/log":
+        # Simple Health Check / Debug Info
+        try:
+            count = count_user_vms(chat_id)
+            status_msg = (
+                f"🛠️ **System Diagnostics**\n\n"
+                f"🆔 **Project ID:** `{CFG['project']}`\n"
+                f"👤 **Your ID:** `{chat_id}`\n"
+                f"🔢 **Active VMs (API Check):** `{count}`\n"
+                f"✅ **Authorized Users:** `{len(CFG['authorized_users'])}`\n"
+                f"⚙️ **Config Loaded:** `True`"
+            )
+            send_msg(chat_id, status_msg)
+        except Exception as e:
+            send_msg(chat_id, f"❌ **Diagnostics Failed**\nError: `{str(e)}`")
 
 def handle_callback(cb):
     chat_id = str(cb.get('message', {}).get('chat', {}).get('id'))
