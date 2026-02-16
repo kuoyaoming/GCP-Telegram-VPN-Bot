@@ -1,4 +1,4 @@
-# 🛡️ GCP Serverless Telegram VPN Bot
+# 🛡️ GCP Serverless Telegram VPN Bot (Multi-User)
 
 ![Python](https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![GCP](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
@@ -8,17 +8,23 @@
 
 **Create disposable, cost-effective OpenVPN servers on-demand directly from Telegram.**
 
-Designed for engineers and privacy advocates who need a clean IP address or a secure tunnel temporarily, without the commitment and cost of running a VPS 24/7. This bot leverages Google Cloud Functions and Compute Engine Spot instances to deliver a powerful, serverless VPN solution that costs pennies to run.
+Designed for engineers and privacy advocates who need a clean IP address or a secure tunnel temporarily. This bot leverages Google Cloud Functions and Compute Engine Spot instances to deliver a powerful, serverless VPN solution.
+
+**New Features:**
+*   **Multi-User Support**: Share your bot with friends securely.
+*   **Activation Codes**: Control access via admin-generated one-time codes.
+*   **Dynamic Regions**: Deploy VPNs in *any* available Google Cloud region.
+*   **User Quotas**: Limits each user to 5 active VMs to control costs.
 
 ---
 
 ## 🚀 Key Features
 
 *   **Serverless Architecture**: Logic runs on **Google Cloud Functions (2nd Gen)**. Zero cost when idle.
-*   **Singleton Pattern**: Automatically destroys existing instances before creating a new one, preventing accidental billing.
+*   **User Isolation**: Each VM is tagged with the user's ID, ensuring privacy and separate management.
 *   **Ultra Low Cost**: Utilizes **Spot Instances (e2-micro)** for maximum savings (~$0.005/hour).
-*   **Automated Deployment**: One-click setup via Telegram. Auto-generates OpenVPN (`.ovpn`) configuration and sends it directly to your chat.
-*   **Real-time Insights**: Check IP, Uptime, and **Estimated Cost** directly from the bot.
+*   **Interactive UI**: Use Telegram Inline Keyboards to browse and select deployment regions.
+*   **Admin Dashboard**: Monitor active users, generate codes, and track global usage.
 
 ---
 
@@ -28,23 +34,31 @@ The bot follows a serverless event-driven architecture to keep costs minimal.
 
 ```mermaid
 sequenceDiagram
-    participant User as 👤 User (Telegram)
+    participant User as 👤 User
+    participant Admin as 👑 Admin
     participant Bot as 🤖 Cloud Function
     participant GCP as ☁️ Compute Engine
-    participant VM as 🖥️ VPN Instance
 
-    User->>Bot: /new (Deploy VPN)
-    Bot->>GCP: Check & Delete Old Instances (Singleton)
-    Bot->>GCP: Create New e2-micro Spot Instance
-    GCP->>VM: Launch & Run Startup Script
-    activate VM
-    VM->>VM: Install Docker & OpenVPN
-    VM->>VM: Generate PKI & Client Config
-    VM->>User: Send .ovpn File
-    deactivate VM
-    User->>Bot: /status
-    Bot->>GCP: Query Instance Metadata
-    Bot->>User: Return IP, Uptime & Cost
+    Note over User, Bot: Authorization Flow
+    User->>Bot: /start
+    Bot->>User: Request Activation Code
+    User->>Bot: Enter Code (e.g., 123456)
+    Bot->>Bot: Verify & Authorize User
+    Bot->>User: Access Granted ✅
+
+    Note over User, GCP: Deployment Flow
+    User->>Bot: /new
+    Bot->>GCP: Fetch Regions
+    Bot->>User: Display Region Keyboard 🌍
+    User->>Bot: Select "asia-east1"
+    Bot->>GCP: Create VM (Label: owner_id=User)
+    GCP->>User: Send .ovpn File 📂
+
+    Note over Admin, Bot: Management
+    Admin->>Bot: /gen
+    Bot->>Admin: New Code: 987654 🔑
+    Admin->>Bot: /admin
+    Bot->>Admin: Show Global Stats 📊
 ```
 
 ---
@@ -66,20 +80,19 @@ Create a file named `main.py` in your project root and configure the `CFG` dicti
 | Key | Description | Example |
 | :--- | :--- | :--- |
 | `token` | Your Telegram Bot Token from @BotFather | `"123456:ABC-DEF..."` |
-| `chat_id` | Your personal Telegram User ID (get from @userinfobot) | `"987654321"` |
+| `chat_id` | **Your Admin ID** (get from @userinfobot) | `"987654321"` |
 | `project` | Your GCP Project ID | `"my-gcp-project"` |
-| `zone` | The GCP Zone for the VM | `"us-central1-a"` |
+| `default_zone` | Fallback zone | `"asia-east1-c"` |
 | `prefix` | Name prefix for the VPN instance | `"vpn-svr"` |
-| `machine` | The machine type (e2-micro recommended for cost) | `"e2-micro"` |
-| `hourly_rate` | Estimated hourly cost for the spot instance | `0.005` |
+| `machine` | The machine type (e2-micro recommended) | `"e2-micro"` |
 
 ```python
 # main.py configuration block
 CFG = {
     "token": "YOUR_TELEGRAM_BOT_TOKEN",
-    "chat_id": "YOUR_TELEGRAM_USER_ID",
+    "chat_id": "YOUR_ADMIN_ID",
     "project": "your-gcp-project-id",
-    "zone": "asia-east1-c",
+    "default_zone": "asia-east1-c",
     "prefix": "vpn-svr",
     "machine": "e2-micro",
     "hourly_rate": 0.005
@@ -130,19 +143,14 @@ curl "https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=<YOUR_FUNCTION_URL
 
 ## 📱 Usage
 
-Once deployed, interact with your bot on Telegram:
+### User Commands
+*   `/new` - **Deploy VPN**: Select a region and launch a new instance (Max 5 active).
+*   `/status` - **My VMs**: Check IP, Uptime, and Cost of *your* instances.
+*   `/del` - **Destroy My VMs**: Terminate all your active instances.
 
-### Commands
-
-*   `/new` - **Deploy VPN**: Terminates any existing instance and launches a fresh one. You will receive a `.ovpn` file in ~2 minutes.
-*   `/status` - **Check Status**: Displays the current Public IP, Uptime, and Real-time Estimated Cost.
-*   `/del` - **Destroy All**: Immediately terminates all VPN instances to stop billing.
-
-### Example Interaction
-
-<p align="center">
-  <img src="assets/demo_interaction.png" width="350" title="Bot Demo">
-</p>
+### Admin Commands (Admin Only)
+*   `/gen` - **Generate Code**: Create a new 6-digit one-time activation code.
+*   `/admin` - **Global Stats**: View total active VMs, list of users, and active codes.
 
 ---
 
@@ -152,7 +160,7 @@ Once deployed, interact with your bot on Telegram:
 *   **Compute Engine (e2-micro Spot)**:
     *   Approx. **$0.005 USD / hour** (varies by region).
     *   10 hours of usage ≈ **$0.05 USD**.
-*   **Network Egress**: Standard GCP rates apply (first 1GB is usually free/month).
+*   **Network Egress**: Standard GCP rates apply.
 
 **Pro Tip**: Always use `/del` when you're done to ensure zero unexpected costs!
 
@@ -161,20 +169,14 @@ Once deployed, interact with your bot on Telegram:
 ## 🔒 Security
 
 *   **Ephemeral Keys**: New PKI and client certificates are generated for every session.
+*   **Access Control**: Users must be authorized via code or be the Admin.
 *   **Disposable Infrastructure**: The server is destroyed after use, leaving no trace.
-*   **Access Control**: The bot is hardcoded to respond **only** to your specific `chat_id`. Unauthorized users are ignored.
 
 ---
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-1.  Fork the repository
-2.  Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
 
 ---
 
