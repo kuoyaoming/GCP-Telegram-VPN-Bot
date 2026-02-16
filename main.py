@@ -254,7 +254,7 @@ systemctl start wg-quick@wg0
     network_interface = compute_v1.NetworkInterface()
     network_interface.network = "global/networks/default"
     access_config = compute_v1.AccessConfig()
-    access_config.type_ = compute_v1.AccessConfig.Type.ONE_TO_ONE_NAT
+    access_config.type_ = "ONE_TO_ONE_NAT"
     network_interface.access_configs = [access_config]
     instance.network_interfaces = [network_interface]
 
@@ -278,7 +278,7 @@ systemctl start wg-quick@wg0
 
     # Spot Provisioning
     scheduling = compute_v1.Scheduling()
-    scheduling.provisioning_model = compute_v1.Scheduling.ProvisioningModel.SPOT
+    scheduling.provisioning_model = "SPOT"
     instance.scheduling = scheduling
 
     # IP Forwarding
