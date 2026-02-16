@@ -17,12 +17,8 @@ def get_secret(secret_id, project_id=None):
     client = secretmanager.SecretManagerServiceClient()
 
     if not project_id:
-        import os
-        project_id = os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT")
-
-        if not project_id:
-             print("Warning: Could not determine Project ID from environment.")
-             return None
+        # Fallback to init_config logic
+        return None
 
     name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
     try:
@@ -65,12 +61,27 @@ def get_compute_client():
 def init_config():
     """Initializes configuration from Secret Manager."""
     import os
-    project_id = os.environ.get("GCP_PROJECT_ID") or os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+    # 1. Try env var set by user
+    project_id = os.environ.get("GCP_PROJECT_ID")
+
+    # 2. Try standard GCF env vars
+    if not project_id:
+        project_id = os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+
+    # 3. Try Metadata Server (if running on GCF/GCE)
+    if not project_id:
+        try:
+            url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+            headers = {"Metadata-Flavor": "Google"}
+            project_id = requests.get(url, headers=headers, timeout=1).text.strip()
+        except:
+            pass
 
     if not project_id:
-        print("CRITICAL: GCP_PROJECT_ID environment variable not set.")
+        print("CRITICAL: Could not determine GCP Project ID from Environment or Metadata.")
         return False
 
+    print(f"Initializing with Project ID: {project_id}")
     CFG["project"] = project_id
 
     token = get_secret("TELEGRAM_BOT_TOKEN", project_id)
@@ -434,6 +445,18 @@ def handle_callback(cb):
         parts = data.split(":")
         zone = parts[1]
         peers = int(parts[2])
+
+        # 1. Validate Zone (Security)
+        valid_zones = REGION_MAP.values()
+        if zone not in valid_zones:
+            answer_callback(cb_id, "Invalid Region")
+            return
+
+        # 2. Re-check Quota (Race Condition)
+        if count_user_vms(chat_id) >= 5:
+            answer_callback(cb_id, "Quota Exceeded (5 Max)")
+            send_msg(chat_id, "❌ **Deployment Failed:** You already have 5 active VMs.")
+            return
 
         answer_callback(cb_id, "Deploying...")
         edit_msg(chat_id, msg_id, f"🚀 **Deploying f1-micro in {zone}...**\n(Approx. 3 mins for setup & QR code delivery)")
